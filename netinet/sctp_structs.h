@@ -629,11 +629,18 @@ union scheduling_parameters {
 	struct ss_fb fb;
 };
 
+/* States for outgoing streams */
+#define SCTP_STREAM_CLOSED           0x00
+#define SCTP_STREAM_OPENING          0x01
+#define SCTP_STREAM_OPEN             0x02
+#define SCTP_STREAM_RESET_PENDING    0x03
+#define SCTP_STREAM_RESET_IN_FLIGHT  0x04
+
 /* This struct is used to track the traffic on outbound streams */
 struct sctp_stream_out {
 	struct sctp_streamhead outqueue;
 	union scheduling_parameters ss_params;
-	uint32_t chunks_on_queues;
+	uint32_t chunks_on_queues;      /* send queue and sent queue */
 #if defined(SCTP_DETAILED_STR_STATS)
 	uint32_t abandoned_unsent[SCTP_PR_SCTP_MAX + 1];
 	uint32_t abandoned_sent[SCTP_PR_SCTP_MAX + 1];
@@ -645,6 +652,7 @@ struct sctp_stream_out {
 	uint16_t stream_no;
 	uint16_t next_sequence_send;	/* next one I expect to send out */
 	uint8_t last_msg_incomplete;
+	uint8_t state;
 };
 
 /* used to keep track of the addresses yet to try to add/delete */
