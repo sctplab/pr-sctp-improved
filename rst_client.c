@@ -22,10 +22,17 @@ main(int argc, char *argv[])
 #else
 	sctp_assoc_t assoc_id;
 #endif
+	struct sctp_udpencaps udpencaps;
 	struct sockaddr_in addr;
 
 	if ((fd = socket(AF_INET, SOCK_STREAM, IPPROTO_SCTP)) < 0) {
 		perror("socket");
+	}
+	memset(&udpencaps, 0, sizeof(struct sctp_udpencaps));
+	udpencaps.sue_address.ss_family=AF_INET;
+	udpencaps.sue_port = htons(9899);
+	if (setsockopt(fd, IPPROTO_SCTP, SCTP_REMOTE_UDP_ENCAPS_PORT, (void *)&udpencaps, sizeof(struct sctp_udpencaps)) < 0) {
+		perror("setsockopt");
 	}
 	memset(&addr, 0, sizeof(struct sockaddr_in));
 	addr.sin_family = AF_INET;
@@ -59,4 +66,4 @@ main(int argc, char *argv[])
 		perror("close");
 	}
 	return (0);
-}	
+}
