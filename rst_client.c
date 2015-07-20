@@ -11,12 +11,14 @@
 
 #define PORT 5001
 #define ADDR "212.201.121.85"
+#define NUMBER_OF_STREAMS 65535
 
 int
 main(int argc, char *argv[])
 {
 	int fd;
 	char c;
+	struct sctp_initmsg init;
 #if 1
 	struct sctp_reset_streams srs;
 #else
@@ -27,6 +29,11 @@ main(int argc, char *argv[])
 
 	if ((fd = socket(AF_INET, SOCK_STREAM, IPPROTO_SCTP)) < 0) {
 		perror("socket");
+	}
+	memset(&init, 0, sizeof(struct sctp_initmsg));
+	init.sinit_num_ostreams = NUMBER_OF_STREAMS;
+	if (setsockopt(fd, IPPROTO_SCTP, SCTP_INITMSG, (const void *)&init, (socklen_t)sizeof(struct sctp_initmsg)) < 0) {
+		perror("setsockopt(SCTP_INITMSG)");
 	}
 	memset(&udpencaps, 0, sizeof(struct sctp_udpencaps));
 	udpencaps.sue_address.ss_family=AF_INET;
