@@ -62,6 +62,11 @@ main(int argc, char *argv[])
 		perror("setsockopt SCTP_RESET_ASSOC");
 	}
 #endif
+	sleep(10);
+	c = 'C';
+        if (send(fd, (const void *)&c, 1, 0) < 0) {
+                perror("send 3");
+        }
 	if (close(fd) < 0) {
 		perror("close");
 	}

@@ -5428,17 +5428,23 @@ sctp_setopt(struct socket *so, int optname, void *optval, size_t optsize,
 			SCTP_TCB_UNLOCK(stcb);
 			break;
 		}
-		if (stcb->asoc.stream_reset_outstanding) {
-			SCTP_LTRACE_ERR_RET(inp, NULL, NULL, SCTP_FROM_SCTP_USRREQ, EALREADY);
-			error = EALREADY;
-			SCTP_TCB_UNLOCK(stcb);
-			break;
-		}
 		if (strrst->srs_flags & SCTP_STREAM_RESET_INCOMING) {
 			send_in = 1;
+			if (stcb->asoc.stream_reset_outstanding) {
+				SCTP_LTRACE_ERR_RET(inp, NULL, NULL, SCTP_FROM_SCTP_USRREQ, EALREADY);
+				error = EALREADY;
+				SCTP_TCB_UNLOCK(stcb);
+				break;
+			}
 		}
 		if (strrst->srs_flags & SCTP_STREAM_RESET_OUTGOING) {
 			send_out = 1;
+		}
+		if ((strrst->srs_number_streams > SCTP_MAX_STREAMS_AT_ONCE_RESET) && send_in) {
+			SCTP_LTRACE_ERR_RET(inp, NULL, NULL, SCTP_FROM_SCTP_USRREQ, ENOMEM);
+			error = ENOMEM;
+			SCTP_TCB_UNLOCK(stcb);
+			break;
 		}
 		if ((send_in == 0) && (send_out == 0)) {
 			SCTP_LTRACE_ERR_RET(inp, NULL, NULL, SCTP_FROM_SCTP_USRREQ, EINVAL);
@@ -5464,11 +5470,30 @@ sctp_setopt(struct socket *so, int optname, void *optval, size_t optsize,
 			SCTP_TCB_UNLOCK(stcb);
 			break;
 		}
-		error = sctp_send_str_reset_req(stcb, strrst->srs_number_streams,
-						strrst->srs_stream_list,
-						send_out, send_in, 0, 0, 0, 0, 0);
+		if (send_out) {
+			if (strrst->srs_number_streams) {
+				for (i = 0; i < strrst->srs_number_streams; i++) {
+					if (stcb->asoc.strmout[i].state == SCTP_STREAM_OPEN)
+						stcb->asoc.strmout[i].state = SCTP_STREAM_RESET_PENDING;
+				}
+			} else {
+				/* Its all */
+				for (i = 0; i <stcb->asoc.streamoutcnt; i++) {
+					if (stcb->asoc.strmout[i].state == SCTP_STREAM_OPEN)
+						stcb->asoc.strmout[i].state = SCTP_STREAM_RESET_PENDING;
+				}
+			}
+		}
+		if (send_in) {
+			error = sctp_send_str_reset_req(stcb, strrst->srs_number_streams,
+							strrst->srs_stream_list,
+							send_in, 0, 0, 0, 0, 0);
+		} else
+			error = sctp_send_stream_reset_out_if_possible(stcb);
+		
+		if (!error)
+			sctp_chunk_output(inp, stcb, SCTP_OUTPUT_FROM_STRRST_REQ, SCTP_SO_LOCKED);
 
-		sctp_chunk_output(inp, stcb, SCTP_OUTPUT_FROM_STRRST_REQ, SCTP_SO_LOCKED);
 		SCTP_TCB_UNLOCK(stcb);
 		break;
 	}
@@ -5535,7 +5560,7 @@ sctp_setopt(struct socket *so, int optname, void *optval, size_t optsize,
 				goto skip_stuff;
 			}
 		}
-		error = sctp_send_str_reset_req(stcb, 0, NULL, 0, 0, 0, addstream, add_o_strmcnt, add_i_strmcnt, 0);
+		error = sctp_send_str_reset_req(stcb, 0, NULL, 0, 0, addstream, add_o_strmcnt, add_i_strmcnt, 0);
 		sctp_chunk_output(inp, stcb, SCTP_OUTPUT_FROM_STRRST_REQ, SCTP_SO_LOCKED);
 	skip_stuff:
 		SCTP_TCB_UNLOCK(stcb);
@@ -5567,7 +5592,7 @@ sctp_setopt(struct socket *so, int optname, void *optval, size_t optsize,
 			SCTP_TCB_UNLOCK(stcb);
 			break;
 		}
-		error = sctp_send_str_reset_req(stcb, 0, NULL, 0, 0, 1, 0, 0, 0, 0);
+		error = sctp_send_str_reset_req(stcb, 0, NULL, 0, 1, 0, 0, 0, 0);
 		sctp_chunk_output(inp, stcb, SCTP_OUTPUT_FROM_STRRST_REQ, SCTP_SO_LOCKED);
 		SCTP_TCB_UNLOCK(stcb);
 		break;

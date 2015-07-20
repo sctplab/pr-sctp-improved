@@ -197,18 +197,16 @@ void sctp_send_cwr(struct sctp_tcb *, struct sctp_nets *, uint32_t, uint8_t);
 
 
 void
-sctp_add_stream_reset_out(struct sctp_tmit_chunk *,
-                          int, uint16_t *, uint32_t, uint32_t, uint32_t);
-
-void
 sctp_add_stream_reset_result(struct sctp_tmit_chunk *, uint32_t, uint32_t);
 
 void
 sctp_add_stream_reset_result_tsn(struct sctp_tmit_chunk *,
                                  uint32_t, uint32_t, uint32_t, uint32_t);
+int
+sctp_send_stream_reset_out_if_possible(struct sctp_tcb *);
 
 int
-sctp_send_str_reset_req(struct sctp_tcb *, uint16_t , uint16_t *, uint8_t,
+sctp_send_str_reset_req(struct sctp_tcb *, uint16_t , uint16_t *, 
                         uint8_t, uint8_t, uint8_t, uint16_t, uint16_t, uint8_t);
 
 void

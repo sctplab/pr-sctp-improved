@@ -636,6 +636,8 @@ union scheduling_parameters {
 #define SCTP_STREAM_RESET_PENDING    0x03
 #define SCTP_STREAM_RESET_IN_FLIGHT  0x04
 
+#define SCTP_MAX_STREAMS_AT_ONCE_RESET 200
+
 /* This struct is used to track the traffic on outbound streams */
 struct sctp_stream_out {
 	struct sctp_streamhead outqueue;
@@ -1206,7 +1208,7 @@ struct sctp_association {
 	uint8_t hb_random_idx;
 	uint8_t default_dscp;
 	uint8_t asconf_del_pending;	/* asconf delete last addr pending */
-
+	uint8_t trigger_reset;
 	/*
 	 * This value, plus all other ack'd but above cum-ack is added
 	 * together to cross check against the bit that we have yet to
