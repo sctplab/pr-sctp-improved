@@ -3881,6 +3881,9 @@ sctp_handle_stream_reset_response(struct sctp_tcb *stcb,
 			}
 		}
 	}
+	if (asoc->stream_reset_outstanding == 0) {
+		sctp_send_stream_reset_out_if_possible(stcb);
+	}
 	return (0);
 }
 

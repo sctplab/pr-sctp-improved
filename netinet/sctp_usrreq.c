@@ -5471,18 +5471,24 @@ sctp_setopt(struct socket *so, int optname, void *optval, size_t optsize,
 			break;
 		}
 		if (send_out) {
+			int cnt;
 			if (strrst->srs_number_streams) {
-				for (i = 0; i < strrst->srs_number_streams; i++) {
-					if (stcb->asoc.strmout[i].state == SCTP_STREAM_OPEN)
+				for (i = 0, cnt = 0; i < strrst->srs_number_streams; i++) {
+					if (stcb->asoc.strmout[i].state == SCTP_STREAM_OPEN) {
 						stcb->asoc.strmout[i].state = SCTP_STREAM_RESET_PENDING;
+						cnt++;
+					}
 				}
 			} else {
 				/* Its all */
-				for (i = 0; i <stcb->asoc.streamoutcnt; i++) {
-					if (stcb->asoc.strmout[i].state == SCTP_STREAM_OPEN)
+				for (i = 0, cnt = 0; i <stcb->asoc.streamoutcnt; i++) {
+					if (stcb->asoc.strmout[i].state == SCTP_STREAM_OPEN) {
 						stcb->asoc.strmout[i].state = SCTP_STREAM_RESET_PENDING;
+						cnt++;
+					}
 				}
 			}
+			printf("We have marked %d streams to be reset (pending)\n", cnt);
 		}
 		if (send_in) {
 			error = sctp_send_str_reset_req(stcb, strrst->srs_number_streams,

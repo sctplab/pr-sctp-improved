@@ -12183,6 +12183,7 @@ sctp_add_stream_reset_out(struct sctp_tcb *stcb, struct sctp_tmit_chunk *chk,
 		}
 	}
 	if (number_entries == 0) {
+		printf("There are no entries that are pending to attack\n");
 		return(0);
 	}
 	if (number_entries == stcb->asoc.streamoutcnt) {
@@ -12207,6 +12208,10 @@ sctp_add_stream_reset_out(struct sctp_tcb *stcb, struct sctp_tmit_chunk *chk,
 				stcb->asoc.strmout[i].state = SCTP_STREAM_RESET_IN_FLIGHT;
 			}
 		}
+	} else {
+		for (i = 0; i <stcb->asoc.streamoutcnt; i++) {
+			stcb->asoc.strmout[i].state = SCTP_STREAM_RESET_IN_FLIGHT;
+		}
 	}
 	if (SCTP_SIZE32(len) > len) {
 		/*-
@@ -12222,7 +12227,7 @@ sctp_add_stream_reset_out(struct sctp_tcb *stcb, struct sctp_tmit_chunk *chk,
 	chk->book_size_scale = 0;
 	chk->send_size = SCTP_SIZE32(chk->book_size);
 	SCTP_BUF_LEN(chk->data) = chk->send_size;
-	printf("Setting mbuf size to %d\n", chk->send_size);
+	printf("The count of entries that we put out is %d\n", number_entries);
 	return(1);
 }
 
@@ -12431,11 +12436,16 @@ sctp_send_stream_reset_out_if_possible(struct sctp_tcb *stcb)
 
 	asoc = &stcb->asoc;
 	if (asoc->stream_reset_outstanding) {
+		printf("A stream reset is outstanding so %s can do nothing\n",
+		       __FUNCTION__);
 		return(EALREADY);
 	}
 	sctp_alloc_a_chunk(stcb, chk);
 	if (chk == NULL) {
 		SCTP_LTRACE_ERR_RET(NULL, stcb, NULL, SCTP_FROM_SCTP_OUTPUT, ENOMEM);
+		printf("I can't get memory for a chunk so %s can do nothing\n",
+		       __FUNCTION__);
+
 		return (ENOMEM);
 	}
 	chk->copy_by_ref = 0;
@@ -12450,6 +12460,8 @@ sctp_send_stream_reset_out_if_possible(struct sctp_tcb *stcb)
 	if (chk->data == NULL) {
 		sctp_free_a_chunk(stcb, chk, SCTP_SO_LOCKED);
 		SCTP_LTRACE_ERR_RET(NULL, stcb, NULL, SCTP_FROM_SCTP_OUTPUT, ENOMEM);
+		printf("I can't get memory for a mbuf so %s can do nothing\n",
+		       __FUNCTION__);
 		return (ENOMEM);
 	}
 	SCTP_BUF_RESV_UF(chk->data, SCTP_MIN_OVERHEAD);
@@ -12473,6 +12485,8 @@ sctp_send_stream_reset_out_if_possible(struct sctp_tcb *stcb)
 		seq++;
 		asoc->stream_reset_outstanding++;
 	} else {
+		printf("There was nothing to send so %s can do nothing\n",
+		       __FUNCTION__);
 		m_freem(chk->data);
 		sctp_free_a_chunk(stcb, chk, SCTP_SO_LOCKED);
 		return(ENOENT);
@@ -12484,6 +12498,8 @@ sctp_send_stream_reset_out_if_possible(struct sctp_tcb *stcb)
 			  sctp_next);
 	asoc->ctrl_queue_cnt++;
 	sctp_timer_start(SCTP_TIMER_TYPE_STRRESET, stcb->sctp_ep, stcb, chk->whoTo);
+	printf("%s queues a stream-reset\n",
+	       __FUNCTION__);
 	return(0);
 }
 
