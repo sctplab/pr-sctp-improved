@@ -7749,7 +7749,7 @@ sctp_log_trace(uint32_t subsys, const char *str SCTP_UNUSED, uint32_t a, uint32_
 #if defined(__FreeBSD__)
 #if __FreeBSD_version >= 800044
 static void
-sctp_recv_udp_tunneled_packet(struct mbuf *m, int off, struct inpcb *ignored,
+sctp_recv_udp_tunneled_packet(struct mbuf *m, int off, struct inpcb *inp,
     const struct sockaddr *sa SCTP_UNUSED, void *ctx SCTP_UNUSED)
 {
 	struct ip *iph;
@@ -7759,6 +7759,7 @@ sctp_recv_udp_tunneled_packet(struct mbuf *m, int off, struct inpcb *ignored,
 	struct mbuf *sp, *last;
 	struct udphdr *uhdr;
 	uint16_t port;
+	int unlocked = 0;
 
 	if ((m->m_flags & M_PKTHDR) == 0) {
 		/* Can't handle one that is not a pkt hdr */
@@ -7796,6 +7797,8 @@ sctp_recv_udp_tunneled_packet(struct mbuf *m, int off, struct inpcb *ignored,
 	last->m_next = sp;
 	m->m_pkthdr.len += sp->m_pkthdr.len;
 	iph = mtod(m, struct ip *);
+	INP_RUNLOCK(inp);
+	unlocked = 1;
 	switch (iph->ip_v) {
 #ifdef INET
 	case IPVERSION:
@@ -7818,8 +7821,14 @@ sctp_recv_udp_tunneled_packet(struct mbuf *m, int off, struct inpcb *ignored,
 		goto out;
 		break;
 	}
+	if (unlocked) {
+		INP_RLOCK(inp);
+	}
 	return;
  out:
+	if (unlocked) {
+		INP_RLOCK(inp);
+	}
 	m_freem(m);
 }
 #endif
