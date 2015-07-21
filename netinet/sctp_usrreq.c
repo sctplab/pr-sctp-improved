@@ -5488,7 +5488,6 @@ sctp_setopt(struct socket *so, int optname, void *optval, size_t optsize,
 					}
 				}
 			}
-			printf("We have marked %d streams to be reset (pending)\n", cnt);
 		}
 		if (send_in) {
 			error = sctp_send_str_reset_req(stcb, strrst->srs_number_streams,

@@ -69,11 +69,18 @@ main(int argc, char *argv[])
 		perror("setsockopt SCTP_RESET_ASSOC");
 	}
 #endif
-	sleep(10);
+	sleep(1);
 	c = 'C';
         if (send(fd, (const void *)&c, 1, 0) < 0) {
                 perror("send 3");
         }
+	c = 'D';
+        if (send(fd, (const void *)&c, 1, 0) < 0) {
+                perror("send 3");
+        }
+	printf("now sleeping for the finale\n");
+	sleep(10);
+	printf("We are not awake and ready to go home\n");
 	if (close(fd) < 0) {
 		perror("close");
 	}

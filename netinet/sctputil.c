@@ -7759,7 +7759,6 @@ sctp_recv_udp_tunneled_packet(struct mbuf *m, int off, struct inpcb *inp,
 	struct mbuf *sp, *last;
 	struct udphdr *uhdr;
 	uint16_t port;
-	int unlocked = 0;
 
 	if ((m->m_flags & M_PKTHDR) == 0) {
 		/* Can't handle one that is not a pkt hdr */
@@ -7797,8 +7796,6 @@ sctp_recv_udp_tunneled_packet(struct mbuf *m, int off, struct inpcb *inp,
 	last->m_next = sp;
 	m->m_pkthdr.len += sp->m_pkthdr.len;
 	iph = mtod(m, struct ip *);
-	INP_RUNLOCK(inp);
-	unlocked = 1;
 	switch (iph->ip_v) {
 #ifdef INET
 	case IPVERSION:
@@ -7821,14 +7818,8 @@ sctp_recv_udp_tunneled_packet(struct mbuf *m, int off, struct inpcb *inp,
 		goto out;
 		break;
 	}
-	if (unlocked) {
-		INP_RLOCK(inp);
-	}
 	return;
  out:
-	if (unlocked) {
-		INP_RLOCK(inp);
-	}
 	m_freem(m);
 }
 #endif
