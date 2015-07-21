@@ -200,6 +200,11 @@ void
 sctp_add_stream_reset_result(struct sctp_tmit_chunk *, uint32_t, uint32_t);
 
 void
+sctp_send_deferred_reset_response(struct sctp_tcb *,
+				  struct sctp_stream_reset_list *,
+				  int);
+
+void
 sctp_add_stream_reset_result_tsn(struct sctp_tmit_chunk *,
                                  uint32_t, uint32_t, uint32_t, uint32_t);
 int

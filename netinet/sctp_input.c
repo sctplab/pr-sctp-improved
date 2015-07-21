@@ -3760,6 +3760,8 @@ sctp_handle_stream_reset_response(struct sctp_tcb *stcb,
 			type = ntohs(req_param->ph.param_type);
 			lparm_len = ntohs(req_param->ph.param_length);
 			if (type == SCTP_STR_RESET_OUT_REQUEST) {
+				int no_clear = 0;
+				
 				req_out_param = (struct sctp_stream_reset_out_request *)req_param;
 				number_entries = (lparm_len - sizeof(struct sctp_stream_reset_out_request)) / sizeof(uint16_t);
 				asoc->stream_reset_out_is_outstanding = 0;
@@ -3769,11 +3771,18 @@ sctp_handle_stream_reset_response(struct sctp_tcb *stcb,
 					/* do it */
 					sctp_reset_out_streams(stcb, number_entries, req_out_param->list_of_streams);
 				} else if (action == SCTP_STREAM_RESET_RESULT_DENIED) {
-					sctp_ulp_notify(SCTP_NOTIFY_STR_RESET_DENIED_OUT, stcb, number_entries, req_out_param->list_of_streams, SCTP_SO_NOT_LOCKED);
+					sctp_ulp_notify(SCTP_NOTIFY_STR_RESET_DENIED_OUT, stcb, number_entries, req_out_param->list_of_streams, SCTP_SO_NOT_LOCKED);	
+				} else if (action == SCTP_STREAM_RESET_RESULT_IN_PROGRESS) {
+					/* Set it up so we don't stop retransmitting */
+					stcb->asoc.str_reset_seq_out--;
+					asoc->stream_reset_out_is_outstanding = 1;
+					no_clear = 1;
 				} else {
 					sctp_ulp_notify(SCTP_NOTIFY_STR_RESET_FAILED_OUT, stcb, number_entries, req_out_param->list_of_streams, SCTP_SO_NOT_LOCKED);
 				}
-				sctp_reset_clear_pending(stcb, number_entries, req_out_param->list_of_streams);
+				if (no_clear == 0) {
+					sctp_reset_clear_pending(stcb, number_entries, req_out_param->list_of_streams);
+				}
 			} else if (type == SCTP_STR_RESET_IN_REQUEST) {
 				req_in_param = (struct sctp_stream_reset_in_request *)req_param;
 				number_entries = (lparm_len - sizeof(struct sctp_stream_reset_in_request)) / sizeof(uint16_t);
@@ -4069,11 +4078,12 @@ sctp_handle_str_reset_request_out(struct sctp_tcb *stcb,
 				sctp_add_stream_reset_result(chk, seq, asoc->last_reset_action[0]);
 				return;
 			}
+			liste->seq = seq;
 			liste->tsn = tsn;
 			liste->number_entries = number_entries;
 			memcpy(&liste->list_of_streams, req->list_of_streams, number_entries * sizeof(uint16_t));
 			TAILQ_INSERT_TAIL(&asoc->resetHead, liste, next_resp);
-			asoc->last_reset_action[0] = SCTP_STREAM_RESET_RESULT_PERFORMED;
+			asoc->last_reset_action[0] = SCTP_STREAM_RESET_RESULT_IN_PROGRESS;
 		}
 		sctp_add_stream_reset_result(chk, seq, asoc->last_reset_action[0]);
 		asoc->str_reset_seq_in++;

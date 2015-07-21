@@ -12331,6 +12331,68 @@ sctp_add_stream_reset_result(struct sctp_tmit_chunk *chk,
 }
 
 void
+sctp_send_deferred_reset_response(struct sctp_tcb *stcb,
+				 struct sctp_stream_reset_list *ent,
+				 int response)
+{
+	struct sctp_association *asoc;
+	struct sctp_tmit_chunk *chk;
+	struct sctp_chunkhdr *ch;
+
+	asoc = &stcb->asoc;
+
+	/* 
+	 * Reset our last reset action to the new one IP -> response 
+	 * (PERFORMED probably). This assures that if we fail to send, a 
+	 * retran from the peer will get the new response.
+	 */
+	asoc->last_reset_action[0] = response;
+	if (asoc->stream_reset_outstanding) {
+		return;
+	}
+	sctp_alloc_a_chunk(stcb, chk);
+	if (chk == NULL) {
+		SCTP_LTRACE_ERR_RET(NULL, stcb, NULL, SCTP_FROM_SCTP_OUTPUT, ENOMEM);
+		return;
+	}
+	chk->copy_by_ref = 0;
+	chk->rec.chunk_id.id = SCTP_STREAM_RESET;
+	chk->rec.chunk_id.can_take_data = 0;
+	chk->flags = 0;
+	chk->asoc = &stcb->asoc;
+	chk->book_size = sizeof(struct sctp_chunkhdr);
+	chk->send_size = SCTP_SIZE32(chk->book_size);
+	chk->book_size_scale = 0;
+	chk->data = sctp_get_mbuf_for_msg(MCLBYTES, 0, M_NOWAIT, 1, MT_DATA);
+	if (chk->data == NULL) {
+		sctp_free_a_chunk(stcb, chk, SCTP_SO_LOCKED);
+		SCTP_LTRACE_ERR_RET(NULL, stcb, NULL, SCTP_FROM_SCTP_OUTPUT, ENOMEM);
+		return;
+	}
+	SCTP_BUF_RESV_UF(chk->data, SCTP_MIN_OVERHEAD);
+	sctp_add_stream_reset_result(chk, ent->seq, response);
+	/* setup chunk parameters */
+	chk->sent = SCTP_DATAGRAM_UNSENT;
+	chk->snd_count = 0;
+	if (stcb->asoc.alternate) {
+		chk->whoTo = stcb->asoc.alternate;
+	} else {
+		chk->whoTo = stcb->asoc.primary_destination;
+	}
+	ch = mtod(chk->data, struct sctp_chunkhdr *);
+	ch->chunk_type = SCTP_STREAM_RESET;
+	ch->chunk_flags = 0;
+	ch->chunk_length = htons(chk->book_size);
+	atomic_add_int(&chk->whoTo->ref_count, 1);
+	SCTP_BUF_LEN(chk->data) = chk->send_size;
+ 	/* insert the chunk for sending */
+	TAILQ_INSERT_TAIL(&asoc->control_send_queue,
+			  chk,
+			  sctp_next);
+	asoc->ctrl_queue_cnt++;
+}
+
+void
 sctp_add_stream_reset_result_tsn(struct sctp_tmit_chunk *chk,
                                  uint32_t resp_seq, uint32_t result,
                                  uint32_t send_una, uint32_t recv_next)
