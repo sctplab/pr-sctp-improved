@@ -5573,6 +5573,7 @@ sctp_setopt(struct socket *so, int optname, void *optval, size_t optsize,
 	}
 	case SCTP_RESET_ASSOC:
 	{
+		int i;
 		uint32_t *value;
 
 		SCTP_CHECK_AND_CAST(value, optval, uint32_t, optsize);
@@ -5596,6 +5597,21 @@ sctp_setopt(struct socket *so, int optname, void *optval, size_t optsize,
 			error = EALREADY;
 			SCTP_TCB_UNLOCK(stcb);
 			break;
+		}
+		/* Is there any data pending in the send or sent queues? */
+		if (!TAILQ_EMPTY(&stcb->asoc.send_queue) ||
+		    !TAILQ_EMPTY(&stcb->asoc.sent_queue)) {
+		busy_out:
+			error = EBUSY;
+			SCTP_LTRACE_ERR_RET(inp, NULL, NULL, SCTP_FROM_SCTP_USRREQ, error);
+			SCTP_TCB_UNLOCK(stcb);
+			break;
+		}
+		/* Do any streams have data queued? */
+		for ( i = 0; i< stcb->asoc.streamoutcnt; i++) {
+			if (!TAILQ_EMPTY(&stcb->asoc.strmout[i].outqueue)) {
+				goto busy_out;
+			}
 		}
 		error = sctp_send_str_reset_req(stcb, 0, NULL, 0, 1, 0, 0, 0, 0);
 		sctp_chunk_output(inp, stcb, SCTP_OUTPUT_FROM_STRRST_REQ, SCTP_SO_LOCKED);
