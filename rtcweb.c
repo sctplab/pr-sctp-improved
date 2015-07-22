@@ -541,6 +541,11 @@ send_outgoing_stream_reset(struct peer_connection *pc)
 	for (i = 0; i < pc->o_stream_buffer_counter; i++) {
 		srs->srs_stream_list[i] = pc->o_stream_buffer[i];
 	}
+	printf("We are sending srs:%p number of streams:%d\n", srs, srs->srs_number_streams);
+	for (i = 0; i < srs->srs_number_streams; i++) {
+		printf("Index:%d stream:%d\n", i, srs->srs_stream_list[i]);
+	}
+
 	if (setsockopt(pc->fd, IPPROTO_SCTP, SCTP_RESET_STREAMS, srs, (socklen_t)len) < 0) {
 		perror("setsockopt");
 	} else {
@@ -548,6 +553,7 @@ send_outgoing_stream_reset(struct peer_connection *pc)
 			srs->srs_stream_list[i] = 0;
 		}
 		pc->o_stream_buffer_counter = 0;
+		printf("So let it be written so let it be done\n");
 	}
 	free(srs);
 	return;

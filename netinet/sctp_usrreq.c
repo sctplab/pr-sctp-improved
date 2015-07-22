@@ -5472,10 +5472,12 @@ sctp_setopt(struct socket *so, int optname, void *optval, size_t optsize,
 		}
 		if (send_out) {
 			int cnt;
+			uint16_t strm;
 			if (strrst->srs_number_streams) {
 				for (i = 0, cnt = 0; i < strrst->srs_number_streams; i++) {
-					if (stcb->asoc.strmout[i].state == SCTP_STREAM_OPEN) {
-						stcb->asoc.strmout[i].state = SCTP_STREAM_RESET_PENDING;
+					strm = strrst->srs_stream_list[i];
+					if (stcb->asoc.strmout[strm].state == SCTP_STREAM_OPEN) {
+						stcb->asoc.strmout[strm].state = SCTP_STREAM_RESET_PENDING;
 						cnt++;
 					}
 				}
