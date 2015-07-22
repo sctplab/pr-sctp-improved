@@ -32,7 +32,7 @@
 
 #ifdef __FreeBSD__
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/sys/netinet/sctp_input.c 284526 2015-06-17 19:26:23Z tuexen $");
+__FBSDID("$FreeBSD: head/sys/netinet/sctp_input.c 285792 2015-07-22 11:30:37Z rrs $");
 #endif
 
 #include <netinet/sctp_os.h>
@@ -2011,8 +2011,8 @@ sctp_process_cookie_existing(struct mbuf *m, int iphlen, int offset,
 		head = &SCTP_BASE_INFO(sctp_asochash)[SCTP_PCBHASH_ASOC(stcb->asoc.my_vtag,
 								    SCTP_BASE_INFO(hashasocmark))];
 		/*
-		 * put it in the bucket in the vtag hash of assoc's for the
-so		 * system
+		 * put it in the bucket in the vtag hash of assoc's for the 
+		 * system
 		 */
 		LIST_INSERT_HEAD(head, stcb, sctp_asocs);
 
