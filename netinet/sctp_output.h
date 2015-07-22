@@ -211,7 +211,7 @@ int
 sctp_send_stream_reset_out_if_possible(struct sctp_tcb *);
 
 int
-sctp_send_str_reset_req(struct sctp_tcb *, uint16_t , uint16_t *, 
+sctp_send_str_reset_req(struct sctp_tcb *, uint16_t , uint16_t *,
                         uint8_t, uint8_t, uint8_t, uint16_t, uint16_t, uint8_t);
 
 void

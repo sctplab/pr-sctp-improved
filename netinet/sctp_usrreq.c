@@ -5497,7 +5497,7 @@ sctp_setopt(struct socket *so, int optname, void *optval, size_t optsize,
 							send_in, 0, 0, 0, 0, 0);
 		} else
 			error = sctp_send_stream_reset_out_if_possible(stcb);
-		
+
 		if (!error)
 			sctp_chunk_output(inp, stcb, SCTP_OUTPUT_FROM_STRRST_REQ, SCTP_SO_LOCKED);
 

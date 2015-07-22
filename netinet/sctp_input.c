@@ -2011,7 +2011,7 @@ sctp_process_cookie_existing(struct mbuf *m, int iphlen, int offset,
 		head = &SCTP_BASE_INFO(sctp_asochash)[SCTP_PCBHASH_ASOC(stcb->asoc.my_vtag,
 								    SCTP_BASE_INFO(hashasocmark))];
 		/*
-		 * put it in the bucket in the vtag hash of assoc's for the 
+		 * put it in the bucket in the vtag hash of assoc's for the
 		 * system
 		 */
 		LIST_INSERT_HEAD(head, stcb, sctp_asocs);
@@ -3730,7 +3730,7 @@ sctp_clean_up_stream_reset(struct sctp_tcb *stcb)
 	}
 	asoc->ctrl_queue_cnt--;
 	sctp_free_a_chunk(stcb, chk, SCTP_SO_NOT_LOCKED);
-        /*sa_ignore NO_NULL_CHK*/
+	/*sa_ignore NO_NULL_CHK*/
 	stcb->asoc.str_reset = NULL;
 }
 
@@ -3761,7 +3761,7 @@ sctp_handle_stream_reset_response(struct sctp_tcb *stcb,
 			lparm_len = ntohs(req_param->ph.param_length);
 			if (type == SCTP_STR_RESET_OUT_REQUEST) {
 				int no_clear = 0;
-				
+
 				req_out_param = (struct sctp_stream_reset_out_request *)req_param;
 				number_entries = (lparm_len - sizeof(struct sctp_stream_reset_out_request)) / sizeof(uint16_t);
 				asoc->stream_reset_out_is_outstanding = 0;
@@ -3771,7 +3771,7 @@ sctp_handle_stream_reset_response(struct sctp_tcb *stcb,
 					/* do it */
 					sctp_reset_out_streams(stcb, number_entries, req_out_param->list_of_streams);
 				} else if (action == SCTP_STREAM_RESET_RESULT_DENIED) {
-					sctp_ulp_notify(SCTP_NOTIFY_STR_RESET_DENIED_OUT, stcb, number_entries, req_out_param->list_of_streams, SCTP_SO_NOT_LOCKED);	
+					sctp_ulp_notify(SCTP_NOTIFY_STR_RESET_DENIED_OUT, stcb, number_entries, req_out_param->list_of_streams, SCTP_SO_NOT_LOCKED);
 				} else if (action == SCTP_STREAM_RESET_RESULT_IN_PROGRESS) {
 					/* Set it up so we don't stop retransmitting */
 					stcb->asoc.str_reset_seq_out--;

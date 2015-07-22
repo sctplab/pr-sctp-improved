@@ -8233,7 +8233,7 @@ sctp_med_chunk_output(struct sctp_inpcb *inp,
 #endif
 	SCTP_TCB_LOCK_ASSERT(stcb);
 	hbflag = 0;
-	if (control_only) 
+	if (control_only)
 		no_data_chunks = 1;
 	else
 		no_data_chunks = 0;
@@ -12341,9 +12341,9 @@ sctp_send_deferred_reset_response(struct sctp_tcb *stcb,
 
 	asoc = &stcb->asoc;
 
-	/* 
-	 * Reset our last reset action to the new one IP -> response 
-	 * (PERFORMED probably). This assures that if we fail to send, a 
+	/*
+	 * Reset our last reset action to the new one IP -> response
+	 * (PERFORMED probably). This assures that if we fail to send, a
 	 * retran from the peer will get the new response.
 	 */
 	asoc->last_reset_action[0] = response;
@@ -12385,7 +12385,7 @@ sctp_send_deferred_reset_response(struct sctp_tcb *stcb,
 	ch->chunk_length = htons(chk->book_size);
 	atomic_add_int(&chk->whoTo->ref_count, 1);
 	SCTP_BUF_LEN(chk->data) = chk->send_size;
- 	/* insert the chunk for sending */
+	/* insert the chunk for sending */
 	TAILQ_INSERT_TAIL(&asoc->control_send_queue,
 			  chk,
 			  sctp_next);
@@ -12547,7 +12547,7 @@ sctp_send_stream_reset_out_if_possible(struct sctp_tcb *stcb)
 		return(ENOENT);
 	}
 	asoc->str_reset = chk;
- 	/* insert the chunk for sending */
+	/* insert the chunk for sending */
 	TAILQ_INSERT_TAIL(&asoc->control_send_queue,
 			  chk,
 			  sctp_next);
@@ -12742,7 +12742,7 @@ skip_stuff:
 		asoc->stream_reset_outstanding++;
 	}
 	asoc->str_reset = chk;
- 	/* insert the chunk for sending */
+	/* insert the chunk for sending */
 	TAILQ_INSERT_TAIL(&asoc->control_send_queue,
 			  chk,
 			  sctp_next);
@@ -13636,7 +13636,7 @@ sctp_lower_sosend(struct socket *so,
 		if (asoc->strmout[srcv->sinfo_stream].state > SCTP_STREAM_OPEN) {
 			error = EAGAIN;
 		} else {
-			error = EINVAL;			
+			error = EINVAL;
 		}
 		SCTP_LTRACE_ERR_RET(inp, stcb, net, SCTP_FROM_SCTP_OUTPUT, error);
 		goto out_unlocked;
