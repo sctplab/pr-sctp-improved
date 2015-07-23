@@ -1895,6 +1895,9 @@ finish_express_del:
 		 */
 		struct sctp_queued_to_read *ctl, *nctl;
 
+		printf("Processing deferred Reconfig-Response c-tsn:0x%x list->tsn:0x%x ss:%d\n",
+		       asoc->cumulative_tsn,
+		       liste->tsn, asoc->send_sack);
 		sctp_reset_in_stream(stcb, liste->number_entries, liste->list_of_streams);
 		TAILQ_REMOVE(&asoc->resetHead, liste, next_resp);
 		sctp_send_deferred_reset_response(stcb, liste, SCTP_STREAM_RESET_RESULT_PERFORMED);
