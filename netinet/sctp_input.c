@@ -4084,9 +4084,7 @@ sctp_handle_str_reset_request_out(struct sctp_tcb *stcb,
 			memcpy(&liste->list_of_streams, req->list_of_streams, number_entries * sizeof(uint16_t));
 			TAILQ_INSERT_TAIL(&asoc->resetHead, liste, next_resp);
 			asoc->last_reset_action[0] = SCTP_STREAM_RESET_RESULT_IN_PROGRESS;
-			printf("cTSN:0x%x Reset TSN:0x%x -- Deferring doing the strm-rest\n",
-			       asoc->cumulative_tsn, tsn);
-		}
+x		}
 		sctp_add_stream_reset_result(chk, seq, asoc->last_reset_action[0]);
 		asoc->str_reset_seq_in++;
 	} else if ((asoc->str_reset_seq_in - 1) == seq) {
