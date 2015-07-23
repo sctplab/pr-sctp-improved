@@ -3771,7 +3771,7 @@ sctp_handle_stream_reset_response(struct sctp_tcb *stcb,
 					/* do it */
 					sctp_reset_out_streams(stcb, number_entries, req_out_param->list_of_streams);
 				} else if (action == SCTP_STREAM_RESET_RESULT_DENIED) {
-					sctp_ulp_notify(SCTP_NOTIFY_STR_RESET_DENIED_OUT, stcb, number_entries, req_out_param->list_of_streams, SCTP_SO_NOT_LOCKED);	
+					sctp_ulp_notify(SCTP_NOTIFY_STR_RESET_DENIED_OUT, stcb, number_entries, req_out_param->list_of_streams, SCTP_SO_NOT_LOCKED);
 				} else if (action == SCTP_STREAM_RESET_RESULT_IN_PROGRESS) {
 					/* Set it up so we don't stop retransmitting */
 					stcb->asoc.str_reset_seq_out--;
@@ -3891,7 +3891,7 @@ sctp_handle_stream_reset_response(struct sctp_tcb *stcb,
 		}
 	}
 	if (asoc->stream_reset_outstanding == 0) {
-		sctp_send_stream_reset_out_if_possible(stcb);
+		sctp_send_stream_reset_out_if_possible(stcb, SCTP_SO_NOT_LOCKED);
 	}
 	return (0);
 }
@@ -3959,7 +3959,7 @@ sctp_handle_str_reset_request_in(struct sctp_tcb *stcb,
 	} else {
 		sctp_add_stream_reset_result(chk, seq, SCTP_STREAM_RESET_RESULT_ERR_BAD_SEQNO);
 	}
-	sctp_send_stream_reset_out_if_possible(stcb);
+	sctp_send_stream_reset_out_if_possible(stcb, SCTP_SO_NOT_LOCKED);
 }
 
 static int
