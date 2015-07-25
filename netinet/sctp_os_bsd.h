@@ -103,7 +103,6 @@ __FBSDID("$FreeBSD: head/sys/netinet/sctp_os_bsd.h 279889 2015-03-11 15:40:29Z t
 #include <netinet/ip6.h>
 #include <netinet6/ip6_var.h>
 #include <netinet6/in6_pcb.h>
-#include <netinet/icmp6.h>
 #include <netinet6/ip6protosw.h>
 #include <netinet6/nd6.h>
 #include <netinet6/scope6_var.h>
