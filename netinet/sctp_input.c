@@ -32,7 +32,7 @@
 
 #ifdef __FreeBSD__
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/sys/netinet/sctp_input.c 295075 2016-01-30 16:56:39Z tuexen $");
+__FBSDID("$FreeBSD: head/sys/netinet/sctp_input.c 295710 2016-02-17 18:12:38Z tuexen $");
 #endif
 
 #include <netinet/sctp_os.h>
@@ -975,7 +975,9 @@ sctp_handle_shutdown(struct sctp_shutdown_chunk *cp,
 			return;
 		}
 #endif
-		sctp_sorwakeup(stcb->sctp_ep, stcb->sctp_socket);
+		if (stcb->sctp_socket) {
+			sctp_sorwakeup(stcb->sctp_ep, stcb->sctp_socket);
+		}
 #if defined(__APPLE__) || defined(SCTP_SO_LOCK_TESTING)
 		SCTP_SOCKET_UNLOCK(so, 1);
 #endif
@@ -5024,7 +5026,7 @@ sctp_process_control(struct mbuf *m, int iphlen, int *offset, int length,
 				if ((stcb) && (stcb->asoc.total_output_queue_size)) {
 					;
 				} else {
-					if (locked_tcb != stcb) {
+					if ((locked_tcb != NULL) && (locked_tcb != stcb)) {
 						/* Very unlikely */
 						SCTP_TCB_UNLOCK(locked_tcb);
 					}
