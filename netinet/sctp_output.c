@@ -32,7 +32,7 @@
 
 #ifdef __FreeBSD__
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/sys/netinet/sctp_output.c 295072 2016-01-30 12:58:38Z tuexen $");
+__FBSDID("$FreeBSD: head/sys/netinet/sctp_output.c 295708 2016-02-17 17:52:46Z tuexen $");
 #endif
 
 #include <netinet/sctp_os.h>
@@ -11117,7 +11117,7 @@ sctp_send_sack(struct sctp_tcb *stcb, int so_locked
 				 * Clear all bits corresponding to TSNs
 				 * smaller or equal to the cumulative TSN.
 				 */
-				tsn_map &= (~0 << (1 - offset));
+				tsn_map &= (~0U << (1 - offset));
 			}
 			selector = &sack_array[tsn_map];
 			if (mergeable && selector->right_edge) {
@@ -11191,7 +11191,7 @@ sctp_send_sack(struct sctp_tcb *stcb, int so_locked
 					 * Clear all bits corresponding to TSNs
 					 * smaller or equal to the cumulative TSN.
 					 */
-					tsn_map &= (~0 << (1 - offset));
+					tsn_map &= (~0U << (1 - offset));
 				}
 				selector = &sack_array[tsn_map];
 				if (mergeable && selector->right_edge) {
