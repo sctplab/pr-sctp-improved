@@ -1,4 +1,3 @@
-# stream-reset-improved
+# pr-sctp-improved
 
-A temporary repo to lear git and improve SCTP Stream Reset.
-We try to understand this GIT stuff...
+A temporary repo for improving PR-SCTP.
