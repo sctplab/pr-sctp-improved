@@ -5112,6 +5112,35 @@ sctp_free_bufspace(struct sctp_tcb *stcb, struct sctp_association *asoc,
 
 #endif
 
+static void
+sctp_place_chunk_in_sent_queue(struct sctp_association *asoc, struct sctp_tmit_chunk *chk)
+{
+	/*
+	 * Place the chunk on the sent_queue (even though it
+	 * has not been sent). This is for cleanup and fwd
+	 * tsn this way we get the correct TSN to forward
+	 * to and the cum-ack arrival will cause the freeing.
+	 */
+	struct sctp_tmit_chunk *tp1;
+	int inserted = 0;
+
+	asoc->sent_queue_cnt++;
+	if (!TAILQ_EMPTY(&asoc->sent_queue)) {
+		TAILQ_FOREACH(tp1, &asoc->sent_queue, sctp_next) {
+			if (SCTP_TSN_GT(chk->rec.data.tsn, tp1->rec.data.tsn))
+				continue;
+			else {
+				TAILQ_INSERT_BEFORE(tp1, chk, sctp_next);
+				inserted = 1;
+				break;
+			}
+		}
+	}
+	if (inserted == 0)
+		TAILQ_INSERT_TAIL(&asoc->sent_queue, chk, sctp_next);
+
+}
+
 int
 sctp_release_pr_sctp_chunk(struct sctp_tcb *stcb, struct sctp_tmit_chunk *schk,
 			   uint8_t sent, int so_locked
@@ -5250,19 +5279,8 @@ sctp_release_pr_sctp_chunk(struct sctp_tcb *stcb, struct sctp_tmit_chunk *schk,
 			do_wakeup_routine = 1;
 			tp1->sent = SCTP_FORWARD_TSN_SKIP;
 			TAILQ_REMOVE(&stcb->asoc.send_queue, tp1, sctp_next);
-			if (stcb->asoc.strmout[chk->rec.data.sid].chunks_on_queues > 0) {
-				stcb->asoc.strmout[chk->rec.data.sid].chunks_on_queues--;
-#ifdef INVARIANTS
-			} else {
-				panic("No chunks on the queues for sid %u.", chk->rec.data.sid);
-#endif
-			}
 			stcb->asoc.send_queue_cnt--;
-			if (PR_SCTP_ENABLED(tp1->flags)) {
-				if (stcb->asoc.pr_sctp_cnt != 0)
-					stcb->asoc.pr_sctp_cnt--;
-			}
-			sctp_free_a_chunk(stcb, tp1, SCTP_SO_NOT_LOCKED);
+			sctp_place_chunk_in_sent_queue(&stcb->asoc, tp1);
 		}
 	}
 	if (foundeom == 0) {
