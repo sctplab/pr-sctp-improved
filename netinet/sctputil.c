@@ -5250,6 +5250,13 @@ sctp_release_pr_sctp_chunk(struct sctp_tcb *stcb, struct sctp_tmit_chunk *schk,
 			do_wakeup_routine = 1;
 			tp1->sent = SCTP_FORWARD_TSN_SKIP;
 			TAILQ_REMOVE(&stcb->asoc.send_queue, tp1, sctp_next);
+			if (stcb->asoc.strmout[chk->rec.data.sid].chunks_on_queues > 0) {
+				stcb->asoc.strmout[chk->rec.data.sid].chunks_on_queues--;
+#ifdef INVARIANTS
+			} else {
+				panic("No chunks on the queues for sid %u.", chk->rec.data.sid);
+#endif
+			}
 			stcb->asoc.send_queue_cnt--;
 			if (PR_SCTP_ENABLED(tp1->flags)) {
 				if (stcb->asoc.pr_sctp_cnt != 0)
@@ -5274,65 +5281,6 @@ sctp_release_pr_sctp_chunk(struct sctp_tcb *stcb, struct sctp_tmit_chunk *schk,
 			 * would have been sent with the LAST
 			 * bit.
 			 */
-			if (chk == NULL) {
-				/* Yep, we have to */
-				sctp_alloc_a_chunk(stcb, chk);
-				if (chk == NULL) {
-					/* we are hosed. All we can
-					 * do is nothing.. which will
-					 * cause an abort if the peer is
-					 * paying attention.
-					 */
-					goto oh_well;
-				}
-				memset(chk, 0, sizeof(*chk));
-				chk->rec.data.rcv_flags = 0;
-				chk->sent = SCTP_FORWARD_TSN_SKIP;
-				chk->asoc = &stcb->asoc;
-				if (stcb->asoc.idata_supported == 0) {
-					if (sp->sinfo_flags & SCTP_UNORDERED) {
-						chk->rec.data.mid = 0;
-					} else {
-						chk->rec.data.mid = strq->next_mid_ordered;
-					}
-				} else {
-					if (sp->sinfo_flags & SCTP_UNORDERED) {
-						chk->rec.data.mid = strq->next_mid_unordered;
-					} else {
-						chk->rec.data.mid = strq->next_mid_ordered;
-					}
-				}
-				chk->rec.data.sid = sp->sid;
-				chk->rec.data.ppid = sp->ppid;
-				chk->rec.data.context = sp->context;
-				chk->flags = sp->act_flags;
-				chk->whoTo = NULL;
-#if defined(__FreeBSD__) || defined(__Panda__)
-				chk->rec.data.tsn = atomic_fetchadd_int(&stcb->asoc.sending_seq, 1);
-#else
-				chk->rec.data.tsn = stcb->asoc.sending_seq++;
-#endif
-				strq->chunks_on_queues++;
-				TAILQ_INSERT_TAIL(&stcb->asoc.sent_queue, chk, sctp_next);
-				stcb->asoc.sent_queue_cnt++;
-				stcb->asoc.pr_sctp_cnt++;
-			}
-			chk->rec.data.rcv_flags |= SCTP_DATA_LAST_FRAG;
-			if (sp->sinfo_flags & SCTP_UNORDERED) {
-				chk->rec.data.rcv_flags |= SCTP_DATA_UNORDERED;
-			}
-			if (stcb->asoc.idata_supported == 0) {
-				if ((sp->sinfo_flags & SCTP_UNORDERED) == 0) {
-					strq->next_mid_ordered++;
-				}
-			} else {
-				if (sp->sinfo_flags & SCTP_UNORDERED) {
-					strq->next_mid_unordered++;
-				} else {
-					strq->next_mid_ordered++;
-				}
-			}
-		oh_well:
 			if (sp->data) {
 				/* Pull any data to free up the SB and
 				 * allow sender to "add more" while we
