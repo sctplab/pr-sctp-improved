@@ -5179,9 +5179,13 @@ sctp_release_pr_sctp_chunk(struct sctp_tcb *stcb, struct sctp_tmit_chunk *tp1,
 			}
 		}
 		tp1->sent = SCTP_FORWARD_TSN_SKIP;
+		if ((tp1->rec.data.mid != mid) || (tp1->rec.data.sid != sid)) {
+			tp1 = TAILQ_NEXT(tp1, sctp_next);
+			continue;
+		}
 		if ((tp1->rec.data.rcv_flags & SCTP_DATA_NOT_FRAG) ==
 		    SCTP_DATA_NOT_FRAG) {
-			/* not frag'ed we ae done   */
+			/* not frag'ed we are done   */
 			notdone = 0;
 			foundeom = 1;
 		} else if (tp1->rec.data.rcv_flags & SCTP_DATA_LAST_FRAG) {
@@ -5205,7 +5209,7 @@ sctp_release_pr_sctp_chunk(struct sctp_tcb *stcb, struct sctp_tmit_chunk *tp1,
 		TAILQ_FOREACH_SAFE(tp1, &stcb->asoc.send_queue, sctp_next, tp2) {
 			if ((tp1->rec.data.sid != sid) ||
 			    (!SCTP_MID_EQ(stcb->asoc.idata_supported, tp1->rec.data.mid, mid))) {
-				break;
+				continue;
 			}
 			/* save to chk in case we have some on stream out
 			 * queue. If so and we have an un-transmitted one
