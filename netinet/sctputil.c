@@ -5313,6 +5313,17 @@ sctp_release_pr_sctp_chunk(struct sctp_tcb *stcb, struct sctp_tmit_chunk *schk,
 				sp->tail_mbuf = NULL;
 				sp->length = 0;
 			}
+			if (stcb->asoc.idata_supported == 0) {
+				if ((sp->sinfo_flags & SCTP_UNORDERED) == 0) {
+					strq->next_mid_ordered++;
+				}
+			} else {
+				if (sp->sinfo_flags & SCTP_UNORDERED) {
+					strq->next_mid_unordered++;
+				} else {
+					strq->next_mid_ordered++;
+				}
+			}
 		}
 		SCTP_TCB_SEND_UNLOCK(stcb);
 	}
