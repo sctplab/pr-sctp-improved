@@ -5112,8 +5112,8 @@ sctp_free_bufspace(struct sctp_tcb *stcb, struct sctp_association *asoc,
 
 #endif
 
-static void
-sctp_place_chunk_in_sent_queue(struct sctp_association *asoc, struct sctp_tmit_chunk *chk)
+void
+sctp_place_chunk_in_queue(struct sctpchunk_listhead *q, struct sctp_tmit_chunk *chk,  unsigned int *cnt)
 {
 	/*
 	 * Place the chunk on the sent_queue (even though it
@@ -5124,20 +5124,32 @@ sctp_place_chunk_in_sent_queue(struct sctp_association *asoc, struct sctp_tmit_c
 	struct sctp_tmit_chunk *tp1;
 	int inserted = 0;
 
-	asoc->sent_queue_cnt++;
-	if (!TAILQ_EMPTY(&asoc->sent_queue)) {
-		TAILQ_FOREACH(tp1, &asoc->sent_queue, sctp_next) {
-			if (SCTP_TSN_GT(chk->rec.data.tsn, tp1->rec.data.tsn))
-				continue;
-			else {
-				TAILQ_INSERT_BEFORE(tp1, chk, sctp_next);
-				inserted = 1;
-				break;
+	if (cnt)
+		*cnt = (*cnt) + 1;
+	tp1 = TAILQ_LAST(q, sctpchunk_listhead);
+	if (tp1 && SCTP_TSN_GT(tp1->rec.data.tsn, chk->rec.data.tsn)) {
+		/*
+		 * We normally insert at the tail (not hitting this
+		 * if block). However when we have a higher one on
+		 * the end, then we must go backwards through the
+		 * list from the tail until we find one smaller or
+		 * we hit the head.
+		 */
+		TAILQ_FOREACH_REVERSE(tp1, q, sctpchunk_listhead, sctp_next) {
+			if (SCTP_TSN_GT(tp1->rec.data.tsn, chk->rec.data.tsn)) {
+			    TAILQ_INSERT_AFTER(q, tp1, chk, sctp_next);
+			    inserted = 1;
+			    break;
 			}
+		}
+		if (inserted == 0) {
+			/* Its the lowest */
+			TAILQ_INSERT_HEAD(q, chk, sctp_next);
+			inserted = 1;
 		}
 	}
 	if (inserted == 0)
-		TAILQ_INSERT_TAIL(&asoc->sent_queue, chk, sctp_next);
+		TAILQ_INSERT_TAIL(q, chk, sctp_next);
 
 }
 
@@ -5157,6 +5169,7 @@ sctp_release_pr_sctp_chunk(struct sctp_tcb *stcb, struct sctp_tmit_chunk *schk,
 	uint8_t unordered, foundeom = 0;
 	int ret_sz = 0;
 	int notdone;
+	int cnt  = 0;
 	int do_wakeup_routine = 0;
 
 #if defined(__APPLE__)
@@ -5172,6 +5185,8 @@ sctp_release_pr_sctp_chunk(struct sctp_tcb *stcb, struct sctp_tmit_chunk *schk,
 		unordered = 1;
 	else
 		unordered = 0;
+	SCTP_PRINTF("PR-SCTP sid:%u mid:%u unordered:%u\n",
+	       sid, mid, unordered);
 	if (sent || !(schk->rec.data.rcv_flags & SCTP_DATA_FIRST_FRAG)) {
 		stcb->asoc.abandoned_sent[0]++;
 		stcb->asoc.abandoned_sent[PR_SCTP_POLICY(schk->flags)]++;
@@ -5222,6 +5237,9 @@ sctp_release_pr_sctp_chunk(struct sctp_tcb *stcb, struct sctp_tmit_chunk *schk,
 			}
 		}
 		tp1->sent = SCTP_FORWARD_TSN_SKIP;
+		SCTP_PRINTF("Sent queue Index:%d marked TSN %u to skip\n",
+		       cnt, tp1->rec.data.tsn);
+		cnt++;
 		if ((tp1->rec.data.rcv_flags & SCTP_DATA_NOT_FRAG) ==
 		    SCTP_DATA_NOT_FRAG) {
 			/* not frag'ed we are done   */
@@ -5244,6 +5262,7 @@ sctp_release_pr_sctp_chunk(struct sctp_tcb *stcb, struct sctp_tmit_chunk *schk,
 		 * The multi-part message was scattered across the send and
 		 * sent queue.
 		 */
+		cnt = 0;
 		TAILQ_FOREACH_SAFE(tp1, &stcb->asoc.send_queue, sctp_next, tp2) {
 			if ((tp1->rec.data.sid != sid) ||
 			    (!SCTP_MID_EQ(stcb->asoc.idata_supported, tp1->rec.data.mid, mid))) {
@@ -5278,9 +5297,12 @@ sctp_release_pr_sctp_chunk(struct sctp_tcb *stcb, struct sctp_tmit_chunk *schk,
 			}
 			do_wakeup_routine = 1;
 			tp1->sent = SCTP_FORWARD_TSN_SKIP;
+			SCTP_PRINTF("Send queue Index:%d marked TSN %u to skip -- reinsert\n",
+			       cnt, tp1->rec.data.tsn);
+			cnt++;
 			TAILQ_REMOVE(&stcb->asoc.send_queue, tp1, sctp_next);
 			stcb->asoc.send_queue_cnt--;
-			sctp_place_chunk_in_sent_queue(&stcb->asoc, tp1);
+			sctp_place_chunk_in_queue(&stcb->asoc.sent_queue, tp1,  &stcb->asoc.sent_queue_cnt);
 		}
 	}
 	if (foundeom == 0) {

@@ -3733,18 +3733,26 @@ struct sctp_tmit_chunk *
 sctp_try_advance_peer_ack_point(struct sctp_tcb *stcb,
     struct sctp_association *asoc)
 {
-	struct sctp_tmit_chunk *tp1, *tp2, *a_adv = NULL;
+	struct sctp_tmit_chunk *top_snd, *tp1, *tp2, *a_adv = NULL;
 	struct timeval now;
 	int now_filled = 0;
 
 	if (asoc->prsctp_supported == 0) {
 		return (NULL);
 	}
+	top_snd = TAILQ_FIRST(&asoc->send_queue);
 	TAILQ_FOREACH_SAFE(tp1, &asoc->sent_queue, sctp_next, tp2) {
 		if (tp1->sent != SCTP_FORWARD_TSN_SKIP &&
 		    tp1->sent != SCTP_DATAGRAM_RESEND &&
 		    tp1->sent != SCTP_DATAGRAM_NR_ACKED) {
 			/* no chance to advance, out of here */
+			break;
+		}
+		if (top_snd && SCTP_TSN_GT(tp1->rec.data.tsn, top_snd->rec.data.tsn)) {
+			/* 
+			 * We can't advance further, there is one ahead of us on
+			 * the not-yet sent queue (send_queue).
+			 */
 			break;
 		}
 		if (SCTP_BASE_SYSCTL(sctp_logging_level) & SCTP_LOG_TRY_ADVANCE) {
