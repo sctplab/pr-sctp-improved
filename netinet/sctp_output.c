@@ -8212,8 +8212,7 @@ re_look:
 	}
 	asoc->chunks_on_out_queue++;
 	strq->chunks_on_queues++;
-	TAILQ_INSERT_TAIL(&asoc->send_queue, chk, sctp_next);
-	asoc->send_queue_cnt++;
+	sctp_place_chunk_in_queue(&asoc->send_queue, chk, &asoc->send_queue_cnt);
 out_of:
 	if (send_lock_up) {
 		SCTP_TCB_SEND_UNLOCK(stcb);

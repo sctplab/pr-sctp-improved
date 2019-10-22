@@ -3751,18 +3751,26 @@ struct sctp_tmit_chunk *
 sctp_try_advance_peer_ack_point(struct sctp_tcb *stcb,
     struct sctp_association *asoc)
 {
-	struct sctp_tmit_chunk *tp1, *tp2, *a_adv = NULL;
+	struct sctp_tmit_chunk *top_snd, *tp1, *tp2, *a_adv = NULL;
 	struct timeval now;
 	int now_filled = 0;
 
 	if (asoc->prsctp_supported == 0) {
 		return (NULL);
 	}
+	top_snd = TAILQ_FIRST(&asoc->send_queue);
 	TAILQ_FOREACH_SAFE(tp1, &asoc->sent_queue, sctp_next, tp2) {
 		if (tp1->sent != SCTP_FORWARD_TSN_SKIP &&
 		    tp1->sent != SCTP_DATAGRAM_RESEND &&
 		    tp1->sent != SCTP_DATAGRAM_NR_ACKED) {
 			/* no chance to advance, out of here */
+			break;
+		}
+		if (top_snd && SCTP_TSN_GT(tp1->rec.data.tsn, top_snd->rec.data.tsn)) {
+			/* 
+			 * We can't advance further, there is one ahead of us on
+			 * the not-yet sent queue (send_queue).
+			 */
 			break;
 		}
 		if (SCTP_BASE_SYSCTL(sctp_logging_level) & SCTP_LOG_TRY_ADVANCE) {
@@ -4551,16 +4559,20 @@ sctp_handle_sack(struct mbuf *m, int offset_seg, int offset_dup,
 		 * no way, we have not even sent this TSN out yet.
 		 * Peer is hopelessly messed up with us.
 		 */
-		SCTP_PRINTF("NEW cum_ack:%x send_s:%x is smaller or equal\n",
+		SCTP_PRINTF("NEW cum_ack:%u send_s:%u is smaller or equal\n",
 			    cum_ack, send_s);
 		if (tp1) {
-			SCTP_PRINTF("Got send_s from tsn:%x + 1 of tp1: %p\n",
-				    tp1->rec.data.tsn, (void *)tp1);
+			SCTP_PRINTF("Got send_s from tp:%p tsn:%u sid:%u mid:%u\n",
+				    (void *)tp1,
+				    tp1->rec.data.tsn,
+				    tp1->rec.data.sid,
+				    tp1->rec.data.mid);
 		}
+
 	hopeless_peer:
 		*abort_now = 1;
 		/* XXX */
-		snprintf(msg, sizeof(msg), "Cum ack %8.8x greater or equal than TSN %8.8x",
+		snprintf(msg, sizeof(msg), "Cum ack %u greater or equal than TSN %u",
 			 cum_ack, send_s);
 		op_err = sctp_generate_cause(SCTP_CAUSE_PROTOCOL_VIOLATION, msg);
 		stcb->sctp_ep->last_abort_code = SCTP_FROM_SCTP_INDATA + SCTP_LOC_25;

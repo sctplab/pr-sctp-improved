@@ -275,13 +275,19 @@ sctp_is_there_unsent_data(struct sctp_tcb *stcb, int so_locked
 				 * time through when we took all the data
 				 * the sender_all_done was not set.
 				 */
-				if (sp->put_last_out == 0) {
+
+
+				if ((sp->put_last_out == 0) &&
+				    (sp->discard_rest == 0)) {
 					SCTP_PRINTF("Gak, put out entire msg with NO end!-1\n");
-					SCTP_PRINTF("sender_done:%d len:%d msg_comp:%d put_last_out:%d\n",
+					SCTP_PRINTF("sd:%d len:%d mc:%d pol:%d sid:%u dis:%d\n",
 					            sp->sender_all_done,
 					            sp->length,
 					            sp->msg_is_complete,
-					            sp->put_last_out);
+					            sp->put_last_out,
+						    sp->sid,
+						    sp->discard_rest
+						);
 				}
 				atomic_subtract_int(&stcb->asoc.stream_queue_cnt, 1);
 				TAILQ_REMOVE(&stcb->asoc.strmout[i].outqueue, sp, next);

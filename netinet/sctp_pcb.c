@@ -5879,7 +5879,9 @@ sctp_free_assoc(struct sctp_inpcb *inp, struct sctp_tcb *stcb, int from_inpcbfre
 #ifdef INVARIANTS
 	for (i = 0; i < stcb->asoc.streamoutcnt; i++) {
 		if (stcb->asoc.strmout[i].chunks_on_queues > 0) {
-			panic("%u chunks left for stream %u.", stcb->asoc.strmout[i].chunks_on_queues, i);
+			panic("stcb:%p %u chunks left for stream %u.",
+			      stcb,
+			      stcb->asoc.strmout[i].chunks_on_queues, i);
 		}
 	}
 #endif

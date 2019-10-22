@@ -5120,8 +5120,49 @@ sctp_free_bufspace(struct sctp_tcb *stcb, struct sctp_association *asoc,
 
 #endif
 
+void
+sctp_place_chunk_in_queue(struct sctpchunk_listhead *q, struct sctp_tmit_chunk *chk,  unsigned int *cnt)
+{
+	/*
+	 * Place the chunk on the sent_queue (even though it
+	 * has not been sent). This is for cleanup and fwd
+	 * tsn this way we get the correct TSN to forward
+	 * to and the cum-ack arrival will cause the freeing.
+	 */
+	struct sctp_tmit_chunk *tp1;
+	int inserted = 0;
+
+	if (cnt)
+		*cnt = (*cnt) + 1;
+	tp1 = TAILQ_LAST(q, sctpchunk_listhead);
+	if (tp1 && SCTP_TSN_GT(tp1->rec.data.tsn, chk->rec.data.tsn)) {
+		/*
+		 * We normally insert at the tail (not hitting this
+		 * if block). However when we have a higher one on
+		 * the end, then we must go backwards through the
+		 * list from the tail until we find one smaller or
+		 * we hit the head.
+		 */
+		TAILQ_FOREACH_REVERSE(tp1, q, sctpchunk_listhead, sctp_next) {
+			if (SCTP_TSN_GT(tp1->rec.data.tsn, chk->rec.data.tsn)) {
+			    TAILQ_INSERT_AFTER(q, tp1, chk, sctp_next);
+			    inserted = 1;
+			    break;
+			}
+		}
+		if (inserted == 0) {
+			/* Its the lowest */
+			TAILQ_INSERT_HEAD(q, chk, sctp_next);
+			inserted = 1;
+		}
+	}
+	if (inserted == 0)
+		TAILQ_INSERT_TAIL(q, chk, sctp_next);
+
+}
+
 int
-sctp_release_pr_sctp_chunk(struct sctp_tcb *stcb, struct sctp_tmit_chunk *tp1,
+sctp_release_pr_sctp_chunk(struct sctp_tcb *stcb, struct sctp_tmit_chunk *schk,
 			   uint8_t sent, int so_locked
 #if !defined(__APPLE__) && !defined(SCTP_SO_LOCK_TESTING)
 			   SCTP_UNUSED
@@ -5129,13 +5170,14 @@ sctp_release_pr_sctp_chunk(struct sctp_tcb *stcb, struct sctp_tmit_chunk *tp1,
 	)
 {
 	struct sctp_stream_out *strq;
-	struct sctp_tmit_chunk *chk = NULL, *tp2;
+	struct sctp_tmit_chunk *chk = NULL, *tp2, *tp1;
 	struct sctp_stream_queue_pending *sp;
 	uint32_t mid;
 	uint16_t sid;
-	uint8_t foundeom = 0;
+	uint8_t unordered, foundeom = 0;
 	int ret_sz = 0;
 	int notdone;
+	int cnt  = 0;
 	int do_wakeup_routine = 0;
 
 #if defined(__APPLE__)
@@ -5145,24 +5187,40 @@ sctp_release_pr_sctp_chunk(struct sctp_tcb *stcb, struct sctp_tmit_chunk *tp1,
 		sctp_unlock_assert(SCTP_INP_SO(stcb->sctp_ep));
 	}
 #endif
-	sid = tp1->rec.data.sid;
-	mid = tp1->rec.data.mid;
-	if (sent || !(tp1->rec.data.rcv_flags & SCTP_DATA_FIRST_FRAG)) {
+	sid = schk->rec.data.sid;
+	mid = schk->rec.data.mid;
+	if (schk->rec.data.rcv_flags & SCTP_DATA_UNORDERED)
+		unordered = 1;
+	else
+		unordered = 0;
+	SCTP_PRINTF("PR-SCTP sid:%u mid:%u unordered:%u\n",
+	       sid, mid, unordered);
+	if (sent || !(schk->rec.data.rcv_flags & SCTP_DATA_FIRST_FRAG)) {
 		stcb->asoc.abandoned_sent[0]++;
-		stcb->asoc.abandoned_sent[PR_SCTP_POLICY(tp1->flags)]++;
+		stcb->asoc.abandoned_sent[PR_SCTP_POLICY(schk->flags)]++;
 		stcb->asoc.strmout[sid].abandoned_sent[0]++;
 #if defined(SCTP_DETAILED_STR_STATS)
-		stcb->asoc.strmout[sid].abandoned_sent[PR_SCTP_POLICY(tp1->flags)]++;
+		stcb->asoc.strmout[sid].abandoned_sent[PR_SCTP_POLICY(schk->flags)]++;
 #endif
 	} else {
 		stcb->asoc.abandoned_unsent[0]++;
-		stcb->asoc.abandoned_unsent[PR_SCTP_POLICY(tp1->flags)]++;
+		stcb->asoc.abandoned_unsent[PR_SCTP_POLICY(schk->flags)]++;
 		stcb->asoc.strmout[sid].abandoned_unsent[0]++;
 #if defined(SCTP_DETAILED_STR_STATS)
-		stcb->asoc.strmout[sid].abandoned_unsent[PR_SCTP_POLICY(tp1->flags)]++;
+		stcb->asoc.strmout[sid].abandoned_unsent[PR_SCTP_POLICY(schk->flags)]++;
 #endif
 	}
-	do {
+	TAILQ_FOREACH(tp1, &stcb->asoc.sent_queue, sctp_next) {
+		if ((!SCTP_MID_EQ(stcb->asoc.idata_supported, tp1->rec.data.mid, mid)) ||
+		    (tp1->rec.data.sid != sid)) {
+			/* Not the same sid/mid */
+			continue;
+		}
+		if ((unordered && ((tp1->rec.data.rcv_flags & SCTP_DATA_UNORDERED) == 0)) ||
+		    ((unordered == 0) && (tp1->rec.data.rcv_flags & SCTP_DATA_UNORDERED))) {
+			/* Not the right ordering */
+			continue;
+		}
 		ret_sz += tp1->book_size;
 		if (tp1->data != NULL) {
 			if (tp1->sent < SCTP_DATAGRAM_RESEND) {
@@ -5187,9 +5245,12 @@ sctp_release_pr_sctp_chunk(struct sctp_tcb *stcb, struct sctp_tmit_chunk *tp1,
 			}
 		}
 		tp1->sent = SCTP_FORWARD_TSN_SKIP;
+		SCTP_PRINTF("Sent queue Index:%d marked TSN %u to skip\n",
+		       cnt, tp1->rec.data.tsn);
+		cnt++;
 		if ((tp1->rec.data.rcv_flags & SCTP_DATA_NOT_FRAG) ==
 		    SCTP_DATA_NOT_FRAG) {
-			/* not frag'ed we ae done   */
+			/* not frag'ed we are done   */
 			notdone = 0;
 			foundeom = 1;
 		} else if (tp1->rec.data.rcv_flags & SCTP_DATA_LAST_FRAG) {
@@ -5202,18 +5263,24 @@ sctp_release_pr_sctp_chunk(struct sctp_tcb *stcb, struct sctp_tmit_chunk *tp1,
 			 * it
 			 */
 			notdone = 1;
-			tp1 = TAILQ_NEXT(tp1, sctp_next);
 		}
-	} while (tp1 && notdone);
+	}
 	if (foundeom == 0) {
 		/*
 		 * The multi-part message was scattered across the send and
 		 * sent queue.
 		 */
+		cnt = 0;
 		TAILQ_FOREACH_SAFE(tp1, &stcb->asoc.send_queue, sctp_next, tp2) {
 			if ((tp1->rec.data.sid != sid) ||
 			    (!SCTP_MID_EQ(stcb->asoc.idata_supported, tp1->rec.data.mid, mid))) {
-				break;
+				/* Not the right mid or sid  */
+				continue;
+			}
+			if ((unordered && ((tp1->rec.data.rcv_flags & SCTP_DATA_UNORDERED) == 0)) ||
+			    ((unordered == 0) && (tp1->rec.data.rcv_flags & SCTP_DATA_UNORDERED))) {
+				/* Not the right ordering */
+				continue;
 			}
 			/* save to chk in case we have some on stream out
 			 * queue. If so and we have an un-transmitted one
@@ -5238,12 +5305,12 @@ sctp_release_pr_sctp_chunk(struct sctp_tcb *stcb, struct sctp_tmit_chunk *tp1,
 			}
 			do_wakeup_routine = 1;
 			tp1->sent = SCTP_FORWARD_TSN_SKIP;
+			SCTP_PRINTF("Send queue Index:%d marked TSN %u to skip -- reinsert\n",
+			       cnt, tp1->rec.data.tsn);
+			cnt++;
 			TAILQ_REMOVE(&stcb->asoc.send_queue, tp1, sctp_next);
-			/* on to the sent queue so we can wait for it to be passed by. */
-			TAILQ_INSERT_TAIL(&stcb->asoc.sent_queue, tp1,
-					  sctp_next);
 			stcb->asoc.send_queue_cnt--;
-			stcb->asoc.sent_queue_cnt++;
+			sctp_place_chunk_in_queue(&stcb->asoc.sent_queue, tp1,  &stcb->asoc.sent_queue_cnt);
 		}
 	}
 	if (foundeom == 0) {
@@ -5262,65 +5329,6 @@ sctp_release_pr_sctp_chunk(struct sctp_tcb *stcb, struct sctp_tmit_chunk *tp1,
 			 * would have been sent with the LAST
 			 * bit.
 			 */
-			if (chk == NULL) {
-				/* Yep, we have to */
-				sctp_alloc_a_chunk(stcb, chk);
-				if (chk == NULL) {
-					/* we are hosed. All we can
-					 * do is nothing.. which will
-					 * cause an abort if the peer is
-					 * paying attention.
-					 */
-					goto oh_well;
-				}
-				memset(chk, 0, sizeof(*chk));
-				chk->rec.data.rcv_flags = 0;
-				chk->sent = SCTP_FORWARD_TSN_SKIP;
-				chk->asoc = &stcb->asoc;
-				if (stcb->asoc.idata_supported == 0) {
-					if (sp->sinfo_flags & SCTP_UNORDERED) {
-						chk->rec.data.mid = 0;
-					} else {
-						chk->rec.data.mid = strq->next_mid_ordered;
-					}
-				} else {
-					if (sp->sinfo_flags & SCTP_UNORDERED) {
-						chk->rec.data.mid = strq->next_mid_unordered;
-					} else {
-						chk->rec.data.mid = strq->next_mid_ordered;
-					}
-				}
-				chk->rec.data.sid = sp->sid;
-				chk->rec.data.ppid = sp->ppid;
-				chk->rec.data.context = sp->context;
-				chk->flags = sp->act_flags;
-				chk->whoTo = NULL;
-#if defined(__FreeBSD__) || defined(__Panda__)
-				chk->rec.data.tsn = atomic_fetchadd_int(&stcb->asoc.sending_seq, 1);
-#else
-				chk->rec.data.tsn = stcb->asoc.sending_seq++;
-#endif
-				strq->chunks_on_queues++;
-				TAILQ_INSERT_TAIL(&stcb->asoc.sent_queue, chk, sctp_next);
-				stcb->asoc.sent_queue_cnt++;
-				stcb->asoc.pr_sctp_cnt++;
-			}
-			chk->rec.data.rcv_flags |= SCTP_DATA_LAST_FRAG;
-			if (sp->sinfo_flags & SCTP_UNORDERED) {
-				chk->rec.data.rcv_flags |= SCTP_DATA_UNORDERED;
-			}
-			if (stcb->asoc.idata_supported == 0) {
-				if ((sp->sinfo_flags & SCTP_UNORDERED) == 0) {
-					strq->next_mid_ordered++;
-				}
-			} else {
-				if (sp->sinfo_flags & SCTP_UNORDERED) {
-					strq->next_mid_unordered++;
-				} else {
-					strq->next_mid_ordered++;
-				}
-			}
-		oh_well:
 			if (sp->data) {
 				/* Pull any data to free up the SB and
 				 * allow sender to "add more" while we
@@ -5334,6 +5342,17 @@ sctp_release_pr_sctp_chunk(struct sctp_tcb *stcb, struct sctp_tmit_chunk *tp1,
 				sp->data = NULL;
 				sp->tail_mbuf = NULL;
 				sp->length = 0;
+			}
+			if (stcb->asoc.idata_supported == 0) {
+				if ((sp->sinfo_flags & SCTP_UNORDERED) == 0) {
+					strq->next_mid_ordered++;
+				}
+			} else {
+				if (sp->sinfo_flags & SCTP_UNORDERED) {
+					strq->next_mid_unordered++;
+				} else {
+					strq->next_mid_ordered++;
+				}
 			}
 		}
 		SCTP_TCB_SEND_UNLOCK(stcb);
