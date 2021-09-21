@@ -423,7 +423,7 @@
 	(void)pthread_mutex_unlock(&(_tcb)->tcb_send_mtx)
 #endif
 #define SCTP_TCB_SEND_LOCK_ASSERT(_tcb) \
-	KASSERT(pthread_mutex_trylock(&(_tcb)->tcb_mtx) == EBUSY, ("%s: tcb_send_mtx not locked", __func__))
+	KASSERT(pthread_mutex_trylock(&(_tcb)->tcb_send_mtx) == EBUSY, ("%s: tcb_send_mtx not locked", __func__))
 
 #define SCTP_ASOC_CREATE_LOCK_INIT(_inp) \
 	(void)pthread_mutex_init(&(_inp)->inp_create_mtx, &SCTP_BASE_VAR(mtx_attr))
